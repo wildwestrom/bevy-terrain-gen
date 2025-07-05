@@ -4456,6 +4456,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "terrain_gen"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_egui",
+ "bevy_panorbit_camera",
+ "log",
+ "noise",
+ "opensimplex_noise_rs",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4667,18 +4679,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "track_geometry"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_egui",
- "bevy_panorbit_camera",
- "log",
- "noise",
- "opensimplex_noise_rs",
 ]
 
 [[package]]
