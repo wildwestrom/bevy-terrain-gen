@@ -476,7 +476,8 @@ fn ui_system(
 	};
 
 	if let Ok(ctx) = contexts.ctx_mut() {
-		// Bypass change detection so we can manually control when changes are detected
+		// snapshot settigns for change detection
+		let before = settings.clone();
 		let settings_ptr = settings.bypass_change_detection();
 
 		egui::Window::new("Terrain Controls")
@@ -524,9 +525,10 @@ fn ui_system(
 				}
 			});
 
-		// Mark as changed if any UI interaction occurred
-		// The bypass_change_detection() means we need to manually mark changes
-		settings.set_changed();
+		// Only mark as changed if UI modified values
+		if *settings_ptr != before {
+			settings.set_changed();
+		}
 	}
 }
 
