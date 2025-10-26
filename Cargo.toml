@@ -1,57 +1,20 @@
 [package]
-name = "terrain_gen"
-version = "0.1.0"
+name = "bevy_procedural_terrain_gen"
+version = "0.0.0"
 edition = "2024"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bevy_procedural_terrain_gen"
+path = "src/lib.rs"
+
+[[example]]
+name = "demo"
+path = "examples/demo.rs"
 
 [dependencies]
-bevy = {version = "0.16.1", default-features = true, features = [
-  "bevy_pbr",
-  "bevy_text",
-  "bevy_winit",
-  "bevy_window",
-  "multi_threaded",
-  "bevy_ui",
-  "tonemapping_luts",
-  "default_font",
-  # non-default-features as of 0.16.1
-  "dynamic_linking",
-  "bevy_dev_tools",
-  "wayland",
-] }
-bevy_panorbit_camera = { version="0.27.0", features = ["bevy_egui"] }
-bevy_egui = "0.35.0"
-log = { version = "0.4.27", features = [
-  "max_level_debug",
-  "release_max_level_warn",
-] }
-noise = "0.9.0"
-opensimplex_noise_rs = "0.3.0"
-
-# Enable a small amount of optimization in the dev profile.
-[profile.dev]
-opt-level = 1
-
-# Enable a large amount of optimization in the dev profile for dependencies.
-[profile.dev.package."*"]
-opt-level = 3
-
-# Enable more optimization in the release profile at the cost of compile time.
-[profile.release]
-# Compile the entire crate as one unit.
-# Slows compile times, marginal improvements.
-codegen-units = 1
-# Do a second optimization pass over the entire program, including dependencies.
-# Slows compile times, marginal improvements.
-lto = "thin"
-
-# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
-[profile.wasm-release]
-# Default to release profile values.
-inherits = "release"
-# Optimize with size in mind (also try "z", sometimes it is better).
-# Slightly slows compile times, great improvements to file size and runtime performance.
-opt-level = "s"
-# Strip all debugging information from the binary to slightly reduce file size.
-strip = "debuginfo"
+bevy = { workspace = true }
+bevy_panorbit_camera = { workspace = true }
+bevy_egui = { workspace = true }
+log = { workspace = true }
+noise = { workspace = true }
+serde = { workspace = true }
