@@ -32,8 +32,7 @@ impl Plugin for TerrainPlugin {
 			.insert_resource(load_settings())
 			.add_systems(Startup, setup_terrain)
 			.add_systems(Update, update_terrain.in_set(TerrainUpdateSet))
-			.add_systems(bevy_egui::EguiPrimaryContextPass, ui_system)
-			.add_systems(Update, update_plot_texture.after(ui_system));
+			.add_systems(bevy_egui::EguiPrimaryContextPass, ui_system);
 	}
 }
 
@@ -134,11 +133,6 @@ impl HeightMap {
 			.expect("Index out of bounds in HeightMap::set") = height;
 	}
 }
-
-/// Resource that, if present, lets the plugin draw an elevation profile polyline.
-/// The pair is (x, height). X is used only for ordering; width is derived from plot width.
-#[derive(Resource, Default, Clone)]
-pub struct ElevationProfileSamples(pub Vec<(f32, f32)>);
 
 /// Contains computed terrain dimensions and generation methods
 struct TerrainGenerator {
@@ -434,26 +428,6 @@ pub struct NoiseTextureResource {
 	pub height: f32,
 }
 
-/// Image handle and dimensions for elevation plot
-#[derive(Resource)]
-pub struct PlotTextureResource {
-	pub handle: Handle<Image>,
-	pub width: f32,
-	pub height: f32,
-}
-
-/// Desired plot width in pixels (height is computed)
-#[derive(Resource, Debug, PartialEq, Eq)]
-pub struct PlotWidth(pub usize);
-
-/// Persistent pixel buffer for plot generation to avoid reallocations
-#[derive(Resource)]
-pub struct PlotPixelBuffer {
-	buffer: Vec<u8>,
-	capacity_width: usize,
-	capacity_height: usize,
-}
-
 #[derive(Resource, Default, Clone)]
 pub struct TerrainControlsUiExt {
 	pub callbacks: Vec<fn(&mut egui::Ui, &mut Settings)>,
@@ -463,17 +437,10 @@ fn ui_system(
 	mut contexts: EguiContexts,
 	mut settings: ResMut<Settings>,
 	noise_texture_res: Res<NoiseTextureResource>,
-	plot_texture_res: Option<Res<PlotTextureResource>>,
-	mut plot_width: ResMut<PlotWidth>,
 	controls_ext: Option<Res<TerrainControlsUiExt>>,
 ) {
 	// Get the texture_id before borrowing ctx_mut
 	let texture_id = contexts.add_image(noise_texture_res.handle.clone());
-	if let Some(res) = plot_texture_res.as_ref() {
-		Some(contexts.add_image(res.handle.clone()))
-	} else {
-		None
-	};
 
 	if let Ok(ctx) = contexts.ctx_mut() {
 		// snapshot settigns for change detection
@@ -518,11 +485,6 @@ fn ui_system(
 
 				ui.label("Noise Texture");
 				ui.image((texture_id, egui::vec2(draw_width, draw_height)));
-
-				let plot_width_pixels = available.x as usize;
-				if plot_width_pixels != plot_width.0 {
-					plot_width.0 = plot_width_pixels.max(1);
-				}
 			});
 
 		// Only mark as changed if UI modified values
@@ -556,178 +518,9 @@ fn setup_terrain(
 		width: preview_width,
 		height: preview_height,
 	});
-
-	// Set initial plot width resource (default to 256)
-	commands.insert_resource(PlotWidth(256));
 }
 
 // TODO: Replace with bevy_prototype_lyon for better 2d drawing
-fn update_plot_texture(
-	mut commands: Commands,
-	mut images: ResMut<Assets<Image>>,
-	plot_width: Res<PlotWidth>,
-	profile_samples: Option<Res<ElevationProfileSamples>>,
-	pixel_buffer: Option<ResMut<PlotPixelBuffer>>,
-	plot_texture_res: Option<Res<PlotTextureResource>>,
-) {
-	let plot_width = plot_width.0.max(1);
-	let plot_height = (plot_width / 8).max(1);
-
-	if let Some(mut buffer_res) = pixel_buffer {
-		// Use existing buffer resource
-		let plot_data = prepare_plot_buffer(&mut buffer_res, plot_width, plot_height);
-
-		// Draw elevation profile if available
-		if let Some(samples) = profile_samples {
-			draw_elevation_profile_from_samples(&samples.0, plot_data, plot_width, plot_height);
-		}
-
-		// Update the plot texture resource
-		update_plot_texture_resource(
-			&mut commands,
-			&mut images,
-			plot_texture_res,
-			plot_data,
-			plot_width,
-			plot_height,
-		);
-	} else {
-		// First time - create the buffer resource for next frame and use temp buffer this frame
-		create_initial_buffer_resource(&mut commands, plot_width, plot_height);
-		let mut temp_buffer = create_temp_plot_buffer(plot_width, plot_height);
-
-		// Draw elevation profile if available
-		if let Some(samples) = profile_samples {
-			draw_elevation_profile_from_samples(&samples.0, &mut temp_buffer, plot_width, plot_height);
-		}
-
-		// Update the plot texture resource
-		update_plot_texture_resource(
-			&mut commands,
-			&mut images,
-			plot_texture_res,
-			&temp_buffer,
-			plot_width,
-			plot_height,
-		);
-	}
-}
-
-fn create_initial_buffer_resource(commands: &mut Commands, plot_width: usize, plot_height: usize) {
-	let buffer_size = plot_width * plot_height * 4;
-	let buffer_resource = PlotPixelBuffer {
-		buffer: vec![0u8; buffer_size],
-		capacity_width: plot_width,
-		capacity_height: plot_height,
-	};
-	commands.insert_resource(buffer_resource);
-}
-
-fn create_temp_plot_buffer(plot_width: usize, plot_height: usize) -> Vec<u8> {
-	let buffer_size = plot_width * plot_height * 4;
-	let mut temp_buffer = vec![0u8; buffer_size];
-
-	// Clear to black
-	for chunk in temp_buffer.chunks_exact_mut(4) {
-		chunk.copy_from_slice(&[0, 0, 0, 255]);
-	}
-
-	temp_buffer
-}
-
-fn prepare_plot_buffer(
-	buffer_res: &mut PlotPixelBuffer,
-	plot_width: usize,
-	plot_height: usize,
-) -> &mut Vec<u8> {
-	let buffer_size = plot_width * plot_height * 4;
-
-	// Resize buffer if dimensions changed
-	if buffer_res.capacity_width != plot_width || buffer_res.capacity_height != plot_height {
-		buffer_res.buffer.clear();
-		buffer_res.buffer.resize(buffer_size, 0);
-		buffer_res.capacity_width = plot_width;
-		buffer_res.capacity_height = plot_height;
-	}
-
-	// Clear to black
-	for chunk in buffer_res.buffer.chunks_exact_mut(4) {
-		chunk.copy_from_slice(&[0, 0, 0, 255]);
-	}
-
-	&mut buffer_res.buffer
-}
-
-fn draw_elevation_profile_from_samples(
-	samples: &[(f32, f32)],
-	plot_data: &mut [u8],
-	plot_width: usize,
-	plot_height: usize,
-) {
-	if samples.is_empty() {
-		return;
-	}
-
-	// Find min/max height for normalization
-	let min_h = samples
-		.iter()
-		.map(|&(_, h)| h)
-		.fold(f32::INFINITY, f32::min);
-	let max_h = samples
-		.iter()
-		.map(|&(_, h)| h)
-		.fold(f32::NEG_INFINITY, f32::max);
-	let height_range = (max_h - min_h).max(1e-5);
-
-	// Draw polyline
-	// Map sample index to x pixel. If more samples than width, clamp; if fewer, spread across width.
-	let n = samples.len().max(1);
-	for (i, &(_, h)) in samples.iter().enumerate() {
-		let x = ((i as f32 / (n - 1).max(1) as f32) * (plot_width - 1) as f32).round() as usize;
-		let norm_h = (h - min_h) / height_range;
-		let y = ((1.0 - norm_h) * (plot_height as f32 - 1.0)).round() as usize;
-
-		if x < plot_width && y < plot_height {
-			let idx = (y * plot_width + x) * 4;
-			plot_data[idx..idx + 4].copy_from_slice(&[255, 0, 0, 255]); // Red pixel
-		}
-	}
-}
-
-fn update_plot_texture_resource(
-	commands: &mut Commands,
-	images: &mut ResMut<Assets<Image>>,
-	plot_texture_res: Option<Res<PlotTextureResource>>,
-	plot_data: &[u8],
-	plot_width: usize,
-	plot_height: usize,
-) {
-	// Remove old image handle before creating new one
-	if let Some(old_plot_res) = plot_texture_res {
-		let old_image_id = old_plot_res.handle.id();
-		images.remove(old_image_id);
-	}
-
-	let plot_image = Image::new_fill(
-		Extent3d {
-			width: plot_width as u32,
-			height: plot_height as u32,
-			depth_or_array_layers: 1,
-		},
-		TextureDimension::D2,
-		plot_data,
-		TextureFormat::Rgba8UnormSrgb,
-		RenderAssetUsages::all(),
-	);
-	let plot_handle = images.add(plot_image);
-
-	let plot_res = PlotTextureResource {
-		handle: plot_handle,
-		width: plot_width as f32,
-		height: plot_height as f32,
-	};
-	commands.insert_resource(plot_res);
-}
 
 fn update_terrain(
 	mut images: ResMut<Assets<Image>>,
@@ -758,12 +551,12 @@ fn update_terrain(
 			meshes.remove(old_mesh_id);
 		}
 
-		// Update the noise texture resource
-		let old_image_id = noise_texture_res.handle.id();
-		noise_texture_res.handle = images.add(new_texture);
+		// Update the noise texture resource in place
+		if let Some(img) = images.get_mut(&noise_texture_res.handle) {
+			*img = new_texture;
+		}
 		noise_texture_res.width = preview_width;
 		noise_texture_res.height = preview_height;
-		images.remove(old_image_id);
 	}
 }
 

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 
-use bevy_procedural_terrain_gen::{ElevationProfileSamples, TerrainPlugin};
+use bevy_procedural_terrain_gen::TerrainPlugin;
 
 fn main() {
 	App::new()
@@ -11,8 +11,6 @@ fn main() {
 		.add_plugins(PanOrbitCameraPlugin)
 		.add_plugins(TerrainPlugin)
 		.add_plugins(bevy_procedural_terrain_gen::hud::CameraDebugHud)
-		// Provide the elevation profile buffer the plugin will draw from
-		.insert_resource(ElevationProfileSamples::default())
 		.add_systems(Startup, setup_demo_scene)
 		.run();
 }
