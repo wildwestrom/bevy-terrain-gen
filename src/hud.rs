@@ -7,7 +7,8 @@ pub struct CameraDebugHud;
 
 impl Plugin for CameraDebugHud {
 	fn build(&self, app: &mut App) {
-		app.add_systems(Startup, setup_hud)
+		app
+			.add_systems(Startup, setup_hud)
 			.add_systems(Update, update_hud);
 	}
 }
@@ -28,7 +29,7 @@ fn setup_hud(mut commands: Commands) {
 				..default()
 			},
 			TextColor(Color::WHITE),
-			TextLayout::new_with_justify(JustifyText::Left),
+			TextLayout::new_with_justify(Justify::Left),
 			Node { ..default() },
 		));
 }

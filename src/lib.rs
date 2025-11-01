@@ -1,10 +1,8 @@
 use bevy::{
 	asset::RenderAssetUsages,
+	mesh::{Indices, PrimitiveTopology},
 	prelude::*,
-	render::{
-		mesh::{Indices, PrimitiveTopology},
-		render_resource::{Extent3d, TextureDimension, TextureFormat},
-	},
+	render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
 pub mod hud;
@@ -440,7 +438,9 @@ fn ui_system(
 	controls_ext: Option<Res<TerrainControlsUiExt>>,
 ) {
 	// Get the texture_id before borrowing ctx_mut
-	let texture_id = contexts.add_image(noise_texture_res.handle.clone());
+	let texture_id = contexts.add_image(bevy_egui::EguiTextureHandle::Weak(
+		noise_texture_res.handle.id(),
+	));
 
 	if let Ok(ctx) = contexts.ctx_mut() {
 		// snapshot settigns for change detection
