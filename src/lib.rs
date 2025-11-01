@@ -257,14 +257,11 @@ impl TerrainGenerator {
 			}
 		}
 
-		Mesh::new(
-			PrimitiveTopology::TriangleList,
-			RenderAssetUsages::RENDER_WORLD,
-		)
-		.with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-		.with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-		.with_inserted_indices(Indices::U32(indices))
-		.with_computed_normals()
+		Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all())
+			.with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+			.with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+			.with_inserted_indices(Indices::U32(indices))
+			.with_computed_normals()
 	}
 
 	fn generate_texture(&self) -> Image {
@@ -555,93 +552,4 @@ fn update_terrain(
 		noise_texture_res.width = preview_width;
 		noise_texture_res.height = preview_height;
 	}
-}
-
-/// Performs ray-terrain intersection by stepping along the ray and checking heights
-pub fn raycast_terrain(ray: &Ray3d, heightmap: &HeightMap, settings: &Settings) -> Option<Vec3> {
-	let world_x = settings.world_x();
-	let world_z = settings.world_z();
-
-	// Calculate terrain bounds
-	let min_x = -world_x / 2.0;
-	let max_x = world_x / 2.0;
-	let min_z = -world_z / 2.0;
-	let max_z = world_z / 2.0;
-
-	// Find the maximum possible terrain height for bounds checking
-	let max_terrain_height = world_size_for_height(settings) * settings.height_multiplier;
-	let min_terrain_height = 0.0; // Assuming terrain doesn't go below 0
-
-	// Calculate intersection with terrain bounding box
-	let mut t_min = 0.0f32;
-	let mut t_max = f32::INFINITY;
-
-	// Check X bounds
-	if ray.direction.x != 0.0 {
-		let tx1 = (min_x - ray.origin.x) / ray.direction.x;
-		let tx2 = (max_x - ray.origin.x) / ray.direction.x;
-		t_min = t_min.max(tx1.min(tx2));
-		t_max = t_max.min(tx1.max(tx2));
-	} else if ray.origin.x < min_x || ray.origin.x > max_x {
-		return None; // Ray is parallel to X bounds and outside
-	}
-
-	// Check Z bounds
-	if ray.direction.z != 0.0 {
-		let tz1 = (min_z - ray.origin.z) / ray.direction.z;
-		let tz2 = (max_z - ray.origin.z) / ray.direction.z;
-		t_min = t_min.max(tz1.min(tz2));
-		t_max = t_max.min(tz1.max(tz2));
-	} else if ray.origin.z < min_z || ray.origin.z > max_z {
-		return None; // Ray is parallel to Z bounds and outside
-	}
-
-	// Check Y bounds (terrain height range)
-	if ray.direction.y != 0.0 {
-		let ty1 = (min_terrain_height - ray.origin.y) / ray.direction.y;
-		let ty2 = (max_terrain_height - ray.origin.y) / ray.direction.y;
-		t_min = t_min.max(ty1.min(ty2));
-		t_max = t_max.min(ty1.max(ty2));
-	}
-
-	// No intersection with bounding box
-	if t_min > t_max || t_max < 0.0 {
-		return None;
-	}
-
-	// Start from the entry point of the bounding box
-	let mut t = t_min.max(0.0);
-	let step_size = 0.2;
-	let max_iterations = 10000; // Safety limit to prevent infinite loops
-	let mut iterations = 0;
-
-	let mut last_valid_point = None;
-
-	while t <= t_max && iterations < max_iterations {
-		iterations += 1;
-
-		let point = ray.origin + ray.direction * t;
-
-		// Clamp point to terrain bounds for height lookup
-		let clamped_point = clamp_to_terrain_bounds(point, settings);
-
-		// Get height from heightmap and apply the same scaling as the terrain mesh
-		let terrain_height = calculate_terrain_height(clamped_point, heightmap, settings);
-
-		// Check if ray point is at or below terrain height
-		if point.y <= terrain_height {
-			// Use clamped position for the result
-			return Some(Vec3::new(clamped_point.x, terrain_height, clamped_point.z));
-		}
-
-		// Store the last valid point in case we need to fall back to terrain boundary
-		if point.x >= min_x && point.x <= max_x && point.z >= min_z && point.z <= max_z {
-			last_valid_point = Some(Vec3::new(clamped_point.x, terrain_height, clamped_point.z));
-		}
-
-		t += step_size;
-	}
-
-	// If we didn't find an intersection, return the last valid point on terrain boundary
-	last_valid_point
 }
