@@ -520,11 +520,9 @@ fn setup_terrain(
 	});
 }
 
-// TODO: Replace with bevy_prototype_lyon for better 2d drawing
-
 fn update_terrain(
 	mut images: ResMut<Assets<Image>>,
-	mut terrain_query: Query<(&mut Mesh3d, &mut HeightMap), With<TerrainMesh>>,
+	terrain_query: Single<(&mut Mesh3d, &mut HeightMap), With<TerrainMesh>>,
 	mut meshes: ResMut<Assets<Mesh>>,
 	mut noise_texture_res: ResMut<NoiseTextureResource>,
 	settings: Res<Settings>,
@@ -540,16 +538,15 @@ fn update_terrain(
 		let (preview_width, preview_height) = generator.calculate_preview_dimensions();
 
 		// Replace the terrain mesh entity
-		if let Ok((mut mesh_handle, mut height_map)) = terrain_query.single_mut() {
-			let old_mesh_id = mesh_handle.id();
+		let (mut mesh_handle, mut height_map) = terrain_query.into_inner();
+		let old_mesh_id = mesh_handle.id();
 
-			// Create new mesh and update the handle
-			*mesh_handle = Mesh3d(meshes.add(new_mesh));
-			*height_map = generator.height_map;
+		// Create new mesh and update the handle
+		*mesh_handle = Mesh3d(meshes.add(new_mesh));
+		*height_map = generator.height_map;
 
-			// Remove the old mesh asset before creating a new one
-			meshes.remove(old_mesh_id);
-		}
+		// Remove the old mesh asset before creating a new one
+		meshes.remove(old_mesh_id);
 
 		// Update the noise texture resource in place
 		if let Some(img) = images.get_mut(&noise_texture_res.handle) {

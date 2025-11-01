@@ -32,31 +32,31 @@ fn setup_hud(mut commands: Commands) {
 			TextLayout::new_with_justify(Justify::Left),
 			Node { ..default() },
 		));
+	info!("HUD setup complete");
 }
 
 fn update_hud(
-	camera_query: Query<&Transform, With<bevy_panorbit_camera::PanOrbitCamera>>,
-	mut hud_query: Query<&mut Text, With<HudText>>,
+	camera_query: Single<&Transform, With<bevy_panorbit_camera::PanOrbitCamera>>,
+	mut hud_text: Single<&mut Text, With<HudText>>,
 ) {
-	if let Ok(camera_transform) = camera_query.single() {
-		if let Ok(mut hud_text) = hud_query.single_mut() {
-			let translation = camera_transform.translation;
-			let rotation = camera_transform.rotation;
+	let camera_transform = camera_query;
 
-			// Convert rotation to euler angles for display
-			let euler = rotation.to_euler(EulerRot::YXZ);
+	let translation = camera_transform.translation;
+	let rotation = camera_transform.rotation;
 
-			*hud_text = Text::new(format!(
-				"Camera Transform:\n\
+	// Convert rotation to euler angles for display
+	let euler = rotation.to_euler(EulerRot::YXZ);
+
+	let text = format!(
+		"Camera Transform:\n\
             Position: ({:.2}, {:.2}, {:.2})\n\
             Rotation: ({:.2}, {:.2}, {:.2}) deg",
-				translation.x,
-				translation.y,
-				translation.z,
-				euler.0.to_degrees(),
-				euler.1.to_degrees(),
-				euler.2.to_degrees()
-			));
-		}
-	}
+		translation.x,
+		translation.y,
+		translation.z,
+		euler.0.to_degrees(),
+		euler.1.to_degrees(),
+		euler.2.to_degrees()
+	);
+	hud_text.0 = text;
 }
