@@ -32,7 +32,7 @@ fn setup_hud(mut commands: Commands) {
 			TextLayout::new_with_justify(Justify::Left),
 			Node { ..default() },
 		));
-	info!("HUD setup complete");
+	debug!("HUD setup complete");
 }
 
 fn update_hud(
