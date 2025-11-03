@@ -109,8 +109,8 @@ pub struct TerrainMesh;
 /// Public height map component/resource stored on the terrain entity.
 #[derive(Debug, Component, Clone)]
 pub struct HeightMap {
-	length_x: u32,
-	heights: Vec<f32>,
+	pub length_x: u32,
+	pub heights: Vec<f32>,
 }
 
 impl HeightMap {
