@@ -1,9 +1,0 @@
-[toolchain]
-channel = "nightly"
-components = [
-  "rust-src",
-  "rust-analyzer",
-  "rustfmt",
-  "llvm-tools-preview",
-  "rustc-codegen-cranelift-preview",
-]
